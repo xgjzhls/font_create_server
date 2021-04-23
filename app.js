@@ -11,7 +11,7 @@ var app = express();
 
 var multipart = require('connect-multiparty');
 var multipartMiddleware = multipart();
-app.use('*', function (req, res, next) {
+app.use('*', function(req, res, next) {
     res.header("Access-Control-Allow-Origin", "http://zi.tools");
     res.header("Access-Control-Allow-Headers", "Content-Type,Content-Length, Authorization, Accept,X-Requested-With");
     res.header("Access-Control-Allow-Methods", "POST,GET");
@@ -52,12 +52,12 @@ app.use(bodyParser.json());
 // });
 app.use(express.static(path.join(__dirname, 'src')));
 // catch 404 and forward to error handler
-app.use(function (req, res, next) {
+app.use(function(req, res, next) {
     next(createError(404));
 });
 
 // error handler
-app.use(function (err, req, res, next) {
+app.use(function(err, req, res, next) {
     // set locals, only providing error in development
     res.locals.message = err.message;
     res.locals.error = req.app.get('env') === 'development' ? err : {};
