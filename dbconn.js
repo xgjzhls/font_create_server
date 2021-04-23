@@ -14,7 +14,7 @@ let option = {
         port: "3306",
         user: "root",
         password: "1Bzbsldeh!",
-        database: "xdd"
+        database: "test"
     }
     // var db = mysql.createConnection(option);
     // //2.发送请求(查询)

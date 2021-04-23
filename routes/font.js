@@ -3,10 +3,15 @@ let router = express.Router()
 const { stablishedConnection, closeDbConnection } = require('../dbconn');
 var readline = require('readline');
 let fs = require('fs');
+const bodyParser = require('body-parser')
+var multer = require('multer')
+var upload = multer()
 let svg2ttf = require('svg2ttf');
 const { nanoid } = require('nanoid');
 const { resolve } = require('path');
 
+var multipart = require('connect-multiparty');
+var multipartMiddleware = multipart();
 /**
  * 
  * @param {string} num 
@@ -131,45 +136,7 @@ const svgtottf = (unicode, d, IDS) => {
         arr.push(line);
     });
     objReadline.on('close', function (line) {
-        let after = arr.splice(arr.length - 3)
-        let line1 = `            <glyph  unicode="&#x${unicode};"`
-        let line2 = `                d="${d}"`
-        let line3 = `                horiz-adv-x="200" />`
-        var writerStream = fs.createWriteStream('src/icon.svg');
-        writerStream.write([...arr, line1, line2, line3, ...after].join('\n'), 'UTF8', (err) => {
-            console.log('write json');
-            var ttf = svg2ttf(fs.readFileSync('src/icon.svg', 'utf8'), { familyname: "集大字库" });
-
-            fs.writeFileSync(`src/myfont${ver}.ttf`, new Buffer.from(ttf.buffer), 'utf8');
-            // fs.writeFileSync(`C:/Program Files/nginx-1.18.0/html/myfont${ver}.ttf`, new Buffer.from(ttf.buffer), 'utf8');
-            // fs.writeFileSync(`/var/www/html/myfont${ver}.ttf`, new Buffer.from(ttf.buffer), 'utf8');
-            let jsonWriteStr
-            getNum()
-                .then((num) => {
-                    jsonWriteStr = JSON.stringify({
-                        "unicode": unicode,
-                        "name": `myfont${ver}.ttf`,
-                        "num": num + 1
-                    })
-
-                    fs.writeFileSync('src/code.json', jsonWriteStr, 'utf8')
-                    console.log('before ins', unicode);
-                    insert(unicode, d, IDS)
-                },
-                    (num) => {
-                        jsonWriteStr = JSON.stringify({
-                            "unicode": unicode,
-                            "name": `myfont${ver}.ttf`,
-                            "num": num + 1
-                        })
-                        fs.writeFileSync('src/code.json', jsonWriteStr, 'utf8')
-                        console.log('before ins', unicode);
-                        insert(unicode, d, IDS)
-                    }
-                )
-
-
-        });
+        writesvg(unicode, d, ver, IDS)
     });
     return `myfont${ver}.ttf`
 }
@@ -186,11 +153,26 @@ const insert = (code, d, IDS) => {
                 // db.end()
                 closeDbConnection(db);
                 if (err) {
-                    console.log("数据库访问出错", err);
-                    return false
+                    console.log("数据库访问出错1");
+                    stablishedConnection()
+                        .then(db => {
+                            db.query(`INSERT INTO font VALUES('${code}','','${d}','')`, function (err, data) {
+
+                                closeDbConnection(db);
+                                if (err) {
+                                    console.log("数据库错2", err);
+                                    return false//⿰𡗩水⿰𡗩水⿰𡗩水
+                                } else {
+                                    console.log(data);
+                                    return true
+                                }
+                            })
+                        })
+
                 } else {
                     return true
-                }
+                }//⿰��水水
+
             })
         })
 }
@@ -227,6 +209,142 @@ const check = (d) => {
 
 }
 
+const imgtosvg = (filepath) => {
+    var potrace = require('potrace'),
+        fs = require('fs');
+    return new Promise((resolve, reject) => {
+
+        potrace.trace(filepath, {
+            color: 'black',
+            threshold: 140
+        }, function (err, svg) {
+            if (err) resolve(false);
+            fs.writeFileSync('src/test.svg', svg);
+            resolve(true)
+        });
+    })
+}
+const writesvg = (unicode, d, ver, IDS) => {
+    var fRead = fs.createReadStream('src/icon.svg');
+    var objReadline = readline.createInterface({
+        input: fRead
+    });
+    var arr = new Array();
+    objReadline.on('line', function (line) {
+        arr.push(line);
+    });
+    objReadline.on('close', function (line) {
+        let after = arr.splice(arr.length - 3)
+        let line1 = `            <glyph  unicode="&#x${unicode};"`
+        let line2 = `                d="${d}"`
+        let line3 = `                horiz-adv-x="400" />`
+        var writerStream = fs.createWriteStream('src/icon.svg');
+        writerStream.write([...arr, line1, line2, line3, ...after].join('\n'), 'UTF8', (err) => {
+            console.log('write json');
+            var ttf = svg2ttf(fs.readFileSync('src/icon.svg', 'utf8'), { familyname: "集大字库" });
+
+            fs.writeFileSync(`src/myfont${ver}.ttf`, new Buffer.from(ttf.buffer), 'utf8');
+            // fs.writeFileSync(`C:/Program Files/nginx-1.18.0/html/myfont${ver}.ttf`, new Buffer.from(ttf.buffer), 'utf8');
+            // fs.writeFileSync(`/var/www/html/myfont${ver}.ttf`, new Buffer.from(ttf.buffer), 'utf8');
+            let jsonWriteStr
+            getNum()
+                .then((num) => {
+                    jsonWriteStr = JSON.stringify({
+                        "unicode": unicode,
+                        "name": `myfont${ver}.ttf`,
+                        "num": num + 1
+                    })
+
+                    fs.writeFileSync('src/code.json', jsonWriteStr, 'utf8')
+                    console.log('before ins', unicode);
+                    insert(unicode, d, IDS)
+                },
+                    (num) => {
+                        jsonWriteStr = JSON.stringify({
+                            "unicode": unicode,
+                            "name": `myfont${ver}.ttf`,
+                            "num": num + 1
+                        })
+                        fs.writeFileSync('src/code.json', jsonWriteStr, 'utf8')
+                        console.log('before ins', unicode);
+                        insert(unicode, d, IDS)
+                    }
+                )
+
+
+        });
+    });
+}
+const getsvgd = () => {
+    return new Promise((resolve, reject) => {
+        var fRead = fs.createReadStream('src/test.svg');
+        var objReadline = readline.createInterface({
+            input: fRead
+        });
+        var arr = new Array();
+        objReadline.on('line', function (line) {
+            arr.push(line);
+        });
+        objReadline.on('close', function (line) {
+            let d = arr[1]
+            let ind = arr[1].indexOf('"')
+            d = d.slice(ind + 1)
+            ind = d.indexOf('"')
+            d = d.substr(0, ind)
+            // console.log(d);
+            resolve(d)
+        })
+    })
+}
+router.post('/upload', multipartMiddleware, (req, res) => {
+    // let formData = req.body;
+    // console.log('form data', formData);
+    // console.log(req.files);
+    imgtosvg(req.files.filepond.path)
+        .then(status => {
+            if (status) {
+                return getsvgd()
+            }
+        })
+        .then(d => {
+            check(d)
+                .then(hasCode => {
+                    console.log('check after', hasCode);
+                    if (hasCode !== '') {
+                        getLatest()
+                            .then(name => {
+                                if (name !== 'fail') {
+                                    res.json({
+                                        status: 'success',
+                                        code: hasCode,
+                                        fontName: name,
+                                    })
+                                } else {
+                                    res.json({
+                                        status: "fail",
+                                    })
+                                }
+                            })
+                    } else {
+                        let ver = nanoid(5)
+                        getUnicode()
+                            .then(unicode => {
+                                writesvg(unicode, d, ver, '')
+                                res.status(200).send(`myfont${ver}.ttf`);
+
+                                res.json({
+                                    status: 'success',
+                                    code: unicode,
+                                    fontName: `myfont${ver}.ttf`,
+                                })
+                            })
+                    }
+                })
+        })
+
+
+
+});
 router.post('/add_font',
     (req, res, next) => {
         console.log('before getuni');
