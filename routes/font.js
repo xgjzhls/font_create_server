@@ -8,7 +8,9 @@ var multer = require('multer')
 var upload = multer()
 let svg2ttf = require('svg2ttf');
 const { nanoid } = require('nanoid');
-
+// const spc = require('svg-png-converter')
+const svgparse = require('svg-parser')
+const rgbHex = require('rgb-hex');
 var multipart = require('connect-multiparty');
 var multipartMiddleware = multipart();
 /**
@@ -86,29 +88,29 @@ const plusOne = (num) => {
  * @returns Promise
  */
 const getUnicode = () => {
-        return new Promise((resolve, reject) => {
-            fs.readFile('src/code.json', (err, data) => {
-                if (err) {
-                    console.log('Get unicode from code.json error: ', err);
-                    reject('error')
-                } else {
-                    console.log('Get unicode from code.json: ', data);
-                    let code = data.toString()
-                    code = JSON.parse(code)
-                    code = code.unicode
-                    console.log(code);
-                    resolve(code)
-                }
-            })
+    return new Promise((resolve, reject) => {
+        fs.readFile('src/code.json', (err, data) => {
+            if (err) {
+                console.log('Get unicode from code.json error: ', err);
+                reject('error')
+            } else {
+                console.log('Get unicode from code.json: ', data);
+                let code = data.toString()
+                code = JSON.parse(code)
+                code = code.unicode
+                console.log(code);
+                resolve(code)
+            }
         })
-    }
-    /**
-     * 
-     * @param {string} unicode unicode of new font
-     * @param {string} d path of svg of new font
-     * @param {string} IDS structions and components of new font
-     * @returns the latest name of .ttf  
-     */
+    })
+}
+/**
+ * 
+ * @param {string} unicode unicode of new font
+ * @param {string} d path of svg of new font
+ * @param {string} IDS structions and components of new font
+ * @returns the latest name of .ttf  
+ */
 const getNum = () => {
     return new Promise((resolve, reject) => {
         fs.readFile('src/code.json', (err, data) => {
@@ -133,10 +135,10 @@ const svgtottf = (unicode, d, IDS) => {
         input: fRead
     });
     var arr = new Array();
-    objReadline.on('line', function(line) {
+    objReadline.on('line', function (line) {
         arr.push(line);
     });
-    objReadline.on('close', function(line) {
+    objReadline.on('close', function (line) {
         writesvg(unicode, d, ver, IDS)
     });
     return `myfont${ver}.ttf`
@@ -150,35 +152,36 @@ const insert = (code, d, IDS) => {
 
     stablishedConnection()
         .then(db => {
-                db.query(`INSERT INTO font VALUES('${code}','','${d}','${IDS}')`, function(err, data) {
-                    // db.end()
-                    closeDbConnection(db);
-                    if (err) {
-                        console.log("数据库访问出错1");
-                        stablishedConnection()
-                            .then(db => {
-                                    db.query(`INSERT INTO font VALUES('${code}','','${d}','')`, function(err, data) {
+            // console.log(d);
+            db.query(`INSERT INTO font VALUES('${code}','','${d}','${IDS}')`, function (err, data) {
+                // db.end()
+                closeDbConnection(db);
+                if (err) {
+                    console.log("数据库访问出错1");
+                    stablishedConnection()
+                        .then(db => {
+                            db.query(`INSERT INTO font VALUES('${code}','','${d}','')`, function (err, data) {
 
-                                        closeDbConnection(db);
-                                        if (err) {
-                                            console.log("数据库错2", err);
-                                            return false //⿰𡗩水⿰𡗩水⿰𡗩水
-                                        } else {
-                                            console.log(data);
-                                            return true
-                                        }
-                                    })
-                                },
-                                (err) => {
-                                    console.log(err);
-                                })
+                                closeDbConnection(db);
+                                if (err) {
+                                    console.log("数据库错2", err);
+                                    return false
+                                } else {
+                                    console.log(data);
+                                    return true
+                                }
+                            })
+                        },
+                            (err) => {
+                                console.log(err);
+                            })
 
-                    } else {
-                        return true
-                    } //⿰��水水
+                } else {
+                    return true
+                } //⿰��水水
 
-                })
-            },
+            })
+        },
             (err) => {
                 console.log(err);
             })
@@ -193,25 +196,25 @@ const check = (d) => {
     return new Promise((resolve, reject) => {
         stablishedConnection()
             .then(db => {
-                    db.query("SELECT unicode,d FROM font", function(err, data) {
+                db.query("SELECT unicode,d FROM font", function (err, data) {
 
-                        // db.end()
-                        if (err) {
-                            console.log("数据库访问出错", err);
-                        } else {
-                            for (let i = 0; i < data.length; i++) {
-                                if (data[i].d === d) {
-                                    console.log('same');
-                                    closeDbConnection(db);
-                                    resolve(data[i].unicode)
-                                }
+                    // db.end()
+                    if (err) {
+                        console.log("数据库访问出错", err);
+                    } else {
+                        for (let i = 0; i < data.length; i++) {
+                            if (data[i].d === d) {
+                                console.log('same');
+                                closeDbConnection(db);
+                                resolve(data[i].unicode)
                             }
                         }
-                        console.log('no same');
-                        closeDbConnection(db);
-                        resolve('')
-                    })
-                },
+                    }
+                    console.log('no same');
+                    closeDbConnection(db);
+                    resolve('')
+                })
+            },
                 (err) => {
                     console.log(err);
                 })
@@ -220,19 +223,141 @@ const check = (d) => {
 
 }
 
-const imgtosvg = (filepath) => {
-    var potrace = require('potrace'),
-        fs = require('fs');
-    return new Promise((resolve, reject) => {
+// const imgtosvg = (filepath) => {
+//     var potrace = require('potrace'),
+//         fs = require('fs');
+//     return new Promise((resolve, reject) => {
 
-        potrace.trace(filepath, {
-            color: 'black',
-            threshold: 140
-        }, function(err, svg) {
-            if (err) resolve(false);
-            fs.writeFileSync('src/test.svg', svg);
-            resolve(true)
-        });
+//         potrace.trace(filepath, {
+//             color: 'black',
+//             threshold: 120
+//         }, function(err, svg) {
+//             if (err) resolve(false);
+//             fs.writeFileSync('src/test.svg', svg);
+//             resolve(true)
+//         });
+//     })
+// }
+const getPath = (d, children, resolve) => {
+    let minColor = "ff"
+    for (let i = 0; i < children.length; i++) {
+        console.log("chileren i", children[i]);
+        path = children[i]
+        let color = path.properties.fill === "none" ? path.properties.stroke : path.properties.fill
+        if (color.substr(0, 3) === "rgb") {
+            color = '#' + rgbHex(color)
+        }
+        if (color.substr(1, 2) < minColor) {
+            minColor = color.substr(1, 2)
+        }
+    }
+    for (let i = 0; i < children.length; i++) {
+        console.log("chileren i", children[i]);
+        path = children[i]
+        let color = path.properties.fill === "none" ? path.properties.stroke : path.properties.fill
+        if (color.substr(0, 3) === "rgb") {
+            color = '#' + rgbHex(color)
+        }
+        if (color.substr(1, 2) == minColor) {
+            d += path.properties.d
+        }
+    }
+    console.log(d);
+    resolve(d)
+    // return d
+}
+// const imgtosvg = (filepath) => {
+//     return new Promise(async (resolve, reject) => {
+
+//         const result = await spc.png2svg({
+//             tracer: 'imagetracer',
+//             optimize: true,
+//             input: fs.readFileSync(filepath),
+//             numberofcolors: 24,
+//             pathomit: 1,
+//         })
+//         console.log(result);
+//         const parsed = svgparse.parse(result.content)
+//         let children = await parsed.children[0].children
+//         let d = await getPath("", children, resolve)
+
+
+//     })
+// }
+
+async function getSvg(filepath) {
+    let webdriver = require('selenium-webdriver'),
+        chrome = require('selenium-webdriver/chrome')
+    By = webdriver.By,
+        until = webdriver.until,
+        options = new chrome.Options();
+    options.addArguments('headless'); // note: without dashes
+    options.addArguments('disable-gpu')
+    options.addArguments('no-sandbox')
+    let service = new chrome.ServiceBuilder().build();
+    chrome.setDefaultService(service);
+    let driver = new webdriver.Builder()
+        .forBrowser('chrome')
+        .withCapabilities(webdriver.Capabilities.chrome())
+        .setChromeOptions(options)                         // note this
+        .build();
+    return new Promise(async (resolve, reject) => {
+        try {
+            driver.get(`https://www.pngtosvg.com/`);
+            await driver.setDownloadPath(`D:/`)
+            console.log('wa1');
+            await (driver.wait(until.elementLocated(By.css('#file')), 10000)
+                .then(async el => {
+                    // let struct = await el.getText()
+                    // return struct
+                    console.log(el);
+                    console.log(filepath);
+                    el.sendKeys(filepath)
+                })
+            )
+            await (driver.wait(until.elementLocated(By.css('.ezmob-footer-close')), 10000000, () => { console.log('fail'); })
+                .then(async el => {
+                    // let struct = await el.getText()
+                    // return struct
+                    el.click()
+                })
+            )
+            await (driver.wait(until.elementLocated(By.css('#imageContainer .btn-primary')), 10000000, () => { console.log('fail'); })
+                .then(async el => {
+                    // let struct = await el.getText()
+                    // return struct
+                    el.click()
+                })
+            )
+            // while (true) {
+            //     let text
+            //     await (driver.wait(until.elementLocated(By.css('#loadingMsg')), 10000000, () => { console.log('fail'); })
+            //         .then(async el => {
+            //             // let struct = await el.getText()
+            //             // return struct
+            //             return el.getText()
+            //         })
+            //         .then(data => {
+            //             text = data
+            //         })
+            //     )
+            //     if (text != 'Generating Vector 50%') {
+            //         console.log('wait',text);
+            //         await driver.sleep(2000)
+            //     } else {
+            //         console.log('break');
+            //         break
+            //     }
+            // }
+            await (await driver).sleep(7000)
+            console.log('download');
+            await (await (await driver).findElement(By.css('#download-btn'))).click()
+        } finally {
+            // await driver.quit();
+            // driver.close()
+            // return s
+        }
+
     })
 }
 const writesvg = (unicode, d, ver, IDS) => {
@@ -241,10 +366,10 @@ const writesvg = (unicode, d, ver, IDS) => {
         input: fRead
     });
     var arr = new Array();
-    objReadline.on('line', function(line) {
+    objReadline.on('line', function (line) {
         arr.push(line);
     });
-    objReadline.on('close', function(line) {
+    objReadline.on('close', function (line) {
         let after = arr.splice(arr.length - 3)
         let line1 = `            <glyph  unicode="&#x${unicode};"`
         let line2 = `                d="${d}"`
@@ -260,16 +385,16 @@ const writesvg = (unicode, d, ver, IDS) => {
             let jsonWriteStr
             getNum()
                 .then((num) => {
-                        jsonWriteStr = JSON.stringify({
-                            "unicode": unicode,
-                            "name": `myfont${ver}.ttf`,
-                            "num": num + 1
-                        })
+                    jsonWriteStr = JSON.stringify({
+                        "unicode": unicode,
+                        "name": `myfont${ver}.ttf`,
+                        "num": num + 1
+                    })
 
-                        fs.writeFileSync('src/code.json', jsonWriteStr, 'utf8')
-                        console.log('before ins', unicode);
-                        insert(unicode, d, IDS)
-                    },
+                    fs.writeFileSync('src/code.json', jsonWriteStr, 'utf8')
+                    console.log('before ins', unicode);
+                    insert(unicode, d, IDS)
+                },
                     (num) => {
                         jsonWriteStr = JSON.stringify({
                             "unicode": unicode,
@@ -293,72 +418,114 @@ const getsvgd = () => {
             input: fRead
         });
         var arr = new Array();
-        objReadline.on('line', function(line) {
+        objReadline.on('line', function (line) {
             arr.push(line);
         });
-        objReadline.on('close', function(line) {
+        objReadline.on('close', function (line) {
             let d = arr[1]
             let ind = arr[1].indexOf('"')
             d = d.slice(ind + 1)
             ind = d.indexOf('"')
             d = d.substr(0, ind)
-                // console.log(d);
+            // console.log(d);
             resolve(d)
         })
     })
 }
-router.post('/upload', multipartMiddleware, (req, res) => {
-    // let formData = req.body;
-    // console.log('form data', formData);
-    // console.log(req.files);
-    console.log(req.files.filepond.path);
-    imgtosvg(req.files.filepond.path)
-        .then(status => {
-            if (status) {
-                return getsvgd()
+
+
+/**
+ * 
+ * @returns the latest name of .ttf
+ */
+const getLatest = () => {
+    return new Promise((resolve, reject) => {
+        fs.readFile('src/code.json', 'utf8', (error, data) => {
+            if (error) {
+                reject('fail')
+            } else {
+                console.log(data);
+                let name = data.toString()
+                name = JSON.parse(name)
+                name = name.name
+                // console.log(name);
+                // resolve(name)
+                resolve(name)
             }
         })
-        .then(d => {
-            check(d)
-                .then(hasCode => {
-                    console.log('check after', hasCode);
-                    if (hasCode !== '') {
-                        getLatest()
-                            .then(name => {
-                                if (name !== 'fail') {
+    })
 
-                                    res.json({
-                                        status: 'success',
-                                        code: hasCode,
-                                        fontName: name,
-                                    })
-                                } else {
-                                    res.json({
-                                        status: "fail",
-                                    })
-                                }
-                            })
-                    } else {
-                        let ver = nanoid(5)
-                        getUnicode()
-                            .then(unicode => {
-                                unicode = plusOne(unicode)
-                                writesvg(unicode, d, ver, '')
+}
+// router.post('/upload', multipartMiddleware, (req, res) => {
+//     // let formData = req.body;
+//     // console.log('form data', formData);
+//     // console.log(req.files);
+//     console.log(req.files.filepond.path);
+//     imgtosvg(req.files.filepond.path)
+//         // .then(status => {
+//         //     if (status) {
+//         //         return getsvgd()
+//         //     }
+//         // })
+//         .then(d => {
+//             check(d)
+//                 .then(hasCode => {
+//                     console.log('check after', hasCode);
+//                     if (hasCode !== '') {
+//                         getLatest()
+//                             .then(name => {
+//                                 if (name !== 'fail') {
 
-                                res.json({
-                                    status: 'success',
-                                    code: unicode,
-                                    fontName: `myfont${ver}.ttf`,
-                                })
+//                                     res.json({
+//                                         status: 'success',
+//                                         code: hasCode,
+//                                         fontName: name,
+//                                     })
+//                                 } else {
+//                                     res.json({
+//                                         status: "fail",
+//                                     })
+//                                 }
+//                             })
+//                     } else {
+//                         let ver = nanoid(5)
+//                         getUnicode()
+//                             .then(unicode => {
+//                                 unicode = plusOne(unicode)
+//                                 writesvg(unicode, d, ver, '')
 
-                            })
-                    }
-                })
+//                                 res.json({
+//                                     status: 'success',
+//                                     code: unicode,
+//                                     fontName: `myfont${ver}.ttf`,
+//                                 })
+
+//                             })
+//                     }
+//                 })
+//         })
+
+
+
+// });
+
+
+const getSvgFile = (filepath) => {
+    return new Promise(async (resolve, reject) => {
+        fs.readFile(filepath, 'utf8', (err, data) => {
+            if (err) {
+                console.error(err)
+                return
+            }
+            // console.log(data)
+            const parsed = svgparse.parse(data)
+            // console.log(parsed.children[0].children);
+            let children = parsed.children[0].children[0].children
+            // console.log(children);
+            let d = getPath("", children, resolve)
         })
-
-
-
-});
+    })
+}
 router.post('/add_font',
     (req, res, next) => {
         console.log('before getuni');
@@ -428,30 +595,6 @@ router.post('/add_font',
 
     }
 )
-
-/**
- * 
- * @returns the latest name of .ttf
- */
-const getLatest = () => {
-    return new Promise((resolve, reject) => {
-        fs.readFile('src/code.json', 'utf8', (error, data) => {
-            if (error) {
-                reject('fail')
-            } else {
-                console.log(data);
-                let name = data.toString()
-                name = JSON.parse(name)
-                name = name.name
-                    // console.log(name);
-                    // resolve(name)
-                resolve(name)
-            }
-        })
-    })
-
-}
-
 router.get('/get_latest',
     (req, res, next) => {
         fs.readFile('src/code.json', 'utf8', (error, data) => {
@@ -492,4 +635,62 @@ router.get('/get_num',
     }
 )
 
+router.post('/test', multipartMiddleware,
+    (req, res, next) => {
+
+        getSvg(req.files.filepond.path)
+            .then(data => {
+                res.send('good')
+            })
+    }
+)
+
+router.post('/upload_svg', multipartMiddleware,
+    (req, res, next) => {
+        let filepath = req.files.filepond.path
+        if (filepath.slice(filepath.length - 3) !== "svg") {
+            res.send('need svg file')
+        }
+        getSvgFile(filepath)
+            .then(d => {
+                check(d)
+                    .then(hasCode => {
+                        console.log('check after', hasCode);
+                        if (hasCode !== '') {
+                            getLatest()
+                                .then(name => {
+                                    if (name !== 'fail') {
+
+                                        res.json({
+                                            status: 'success',
+                                            code: hasCode,
+                                            fontName: name,
+                                        })
+                                    } else {
+                                        res.json({
+                                            status: "fail",
+                                        })
+                                    }
+                                })
+                        } else {
+                            let ver = nanoid(5)
+                            getUnicode()
+                                .then(unicode => {
+                                    unicode = plusOne(unicode)
+                                    writesvg(unicode, d, ver, '')
+
+                                    res.json({
+                                        status: 'success',
+                                        code: unicode,
+                                        fontName: `myfont${ver}.ttf`,
+                                    })
+
+                                })
+                        }
+                    })
+            })
+
+    }
+
+)
 module.exports = router
